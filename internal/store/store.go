@@ -5,15 +5,6 @@ import (
 	"time"
 )
 
-// это интерфейс моего ИМС, избавляемся от деталей реализации, легче тестить, больше независимости кода
-type Store interface {
-	// задать значение ключа и продолжительность его жизни
-	Set(key string, value any, seconds int)
-	// получить ключ, если такого нет - возвращается ошибка
-	Get(key string) (any, error)
-	Delete(key string)
-}
-
 type myStore struct {
 	// в мапе храним данные
 	store map[string]any
@@ -24,19 +15,11 @@ type myStore struct {
 	locker sync.RWMutex
 }
 
-// выдаем синглтон хранилища
-var storeInstance Store = nil
-
-func GetStore() Store {
-	if storeInstance == nil {
-		storeInstance = &myStore{
-			make(map[string]any),
-			make(map[string]time.Time),
-			sync.RWMutex{},
-		}
-		return storeInstance
-	} else {
-		return storeInstance
+func GetStore() *myStore {
+	return &myStore{
+		make(map[string]any),
+		make(map[string]time.Time),
+		sync.RWMutex{},
 	}
 }
 

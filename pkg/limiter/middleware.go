@@ -2,15 +2,15 @@ package limiter
 
 import (
 	"net/http"
-
-	"golang.org/x/time/rate"
 )
 
-var limiter = rate.NewLimiter(10, 5)
+// 5 rps with bursts of up to 5 requests
+var ipLimiter = NewIPLimiter(5, 5)
 
-func LimiterMiddleware(next http.Handler) http.Handler {
+func IPLimiterMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if limiter.Allow() == false {
+		limiter := ipLimiter.GetLimiter(r.RemoteAddr)
+		if !limiter.Allow() {
 			http.Error(w, http.StatusText(429), http.StatusTooManyRequests)
 			return
 		}

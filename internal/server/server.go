@@ -7,17 +7,9 @@ import (
 )
 
 func NewServer() *http.Server {
-	mux := http.ServeMux{}
-	mux.HandleFunc("/set", v1.SetKey)
-	mux.HandleFunc("/get", v1.GetKey)
-	mux.HandleFunc("/delete", v1.DeleteKey)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-
 	s := &http.Server{
 		Addr:    ":8080",
-		Handler: limiter.LimiterMiddleware(&mux),
+		Handler: limiter.IPLimiterMiddleware(v1.NewHttpHandler()),
 	}
 	return s
 }

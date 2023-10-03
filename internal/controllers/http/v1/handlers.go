@@ -6,6 +6,43 @@ import (
 	"net/http"
 )
 
+// определение интерфейса хранилища
+// это интерфейс моего ИМС, избавляемся от деталей реализации, легче тестить, больше независимости кода
+type Store interface {
+	// задать значение ключа и продолжительность его жизни
+	Set(key string, value any, seconds int)
+	// получить ключ, если такого нет - возвращается ошибка
+	Get(key string) (any, error)
+	Delete(key string)
+}
+
+// кастомный handler для запросов
+type myHttpHandler struct {
+	store Store
+}
+
+func NewHttpHandler() *myHttpHandler {
+	return &myHttpHandler{
+		store: store.GetStore(),
+	}
+}
+
+// ServeHTTP метод для совместимости с интерфейсом http.Handler
+func (h *myHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/set":
+		h.setKey(w, r)
+	case "/get":
+		h.getKey(w, r)
+	case "/delete":
+		h.deleteKey(w, r)
+	case "/health":
+		func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}(w, r)
+	}
+}
+
 // определение входящих/выходящих запросов
 // TODO: пока можно хранить только строки, добавить поддержку других типов данных
 type setKeyInput struct {
@@ -30,7 +67,7 @@ type deleteKeyInput struct {
 }
 
 // хендл для задания ключа, отвечает только на POST-запрос
-func SetKey(w http.ResponseWriter, r *http.Request) {
+func (h *myHttpHandler) setKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -42,14 +79,13 @@ func SetKey(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	store := store.GetStore()
-	store.Set(input.Key, input.Value, input.Seconds)
+	h.store.Set(input.Key, input.Value, input.Seconds)
 	//store.Set(input.Key, input.Value, time.Minute*5)
 	w.WriteHeader(http.StatusOK)
 }
 
 // хендл для поиска ключа, отвечает только на GET-запрос
-func GetKey(w http.ResponseWriter, r *http.Request) {
+func (h *myHttpHandler) getKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -62,8 +98,7 @@ func GetKey(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	store := store.GetStore()
-	value, err := store.Get(input.Key)
+	value, err := h.store.Get(input.Key)
 	var output getKeyOutput
 	// можно было не проверять, значание по умолчанию у bool всегда false
 	// НО для ясности действий
@@ -84,7 +119,7 @@ func GetKey(w http.ResponseWriter, r *http.Request) {
 }
 
 // хендл для удаления ключа, отвечает только на DELETE-запрос
-func DeleteKey(w http.ResponseWriter, r *http.Request) {
+func (h *myHttpHandler) deleteKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -97,7 +132,6 @@ func DeleteKey(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	store := store.GetStore()
-	store.Delete(input.Key)
+	h.store.Delete(input.Key)
 	w.WriteHeader(http.StatusOK)
 }
